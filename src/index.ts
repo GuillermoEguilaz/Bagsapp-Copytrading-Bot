@@ -1,27 +1,32 @@
-import { loadConfig } from "./config";
-import { PumpfunCopytradingBot } from "./bot";
-import { logger } from "./logger";
+import dotenv from 'dotenv';
+import { CopytradingBot } from './bot.js';
+import { logger } from './utils/logger.js';
+
+dotenv.config();
 
 async function main(): Promise<void> {
-  const config = loadConfig();
-  const bot = new PumpfunCopytradingBot(config);
+  try {
+    logger.info('Starting Bagsapp Copytrading Bot...');
+    
+    const bot = new CopytradingBot({
+      rpcUrl: process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com',
+      privateKey: process.env.PRIVATE_KEY || '',
+      targetWallets: process.env.TARGET_WALLETS?.split(',').map(w => w.trim()) || [],
+      bagsappProgramId: process.env.BAGSAPP_PROGRAM_ID || 'BagApp111111111111111111111111111111111',
+      enableOwnSellLogic: process.env.ENABLE_OWN_SELL_LOGIC === 'true',
+      stopLossPercent: parseFloat(process.env.STOP_LOSS_PERCENT || '5'),
+      takeProfitPercent: parseFloat(process.env.TAKE_PROFIT_PERCENT || '10'),
+      slippageBps: parseInt(process.env.SLIPPAGE_BPS || '100', 10),
+      minSolAmount: parseFloat(process.env.MIN_SOL_AMOUNT || '0.01'),
+      maxSolAmount: parseFloat(process.env.MAX_SOL_AMOUNT || '10'),
+    });
 
-  bot.start();
-
-  process.on("SIGINT", () => {
-    logger.warn("Received SIGINT. Shutting down...");
-    bot.stop();
-    process.exit(0);
-  });
-
-  process.on("SIGTERM", () => {
-    logger.warn("Received SIGTERM. Shutting down...");
-    bot.stop();
-    process.exit(0);
-  });
+    await bot.initialize();
+    await bot.start();
+  } catch (error) {
+    logger.error('Fatal error:', error);
+    process.exit(1);
+  }
 }
 
-main().catch((error) => {
-  logger.error("Fatal error while starting bot", error);
-  process.exit(1);
-});
+main();
